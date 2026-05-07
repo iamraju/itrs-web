@@ -25,10 +25,6 @@
                         <span class="font-display text-lg font-bold text-white">IT</span>
                     </div>
                 <?php endif; ?>
-                <div>
-                    <p class="font-display text-xl leading-none tracking-tight text-white">ITRS Nepal</p>
-                    <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Web & Mobile Studio</p>
-                </div>
             </a>
 
             <button id="mobile-menu-toggle" class="inline-flex rounded-xl border border-white/20 p-2 text-white md:hidden" aria-label="Toggle menu">

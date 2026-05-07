@@ -51,6 +51,28 @@ function itrs_ai_enqueue_assets(): void
         file_exists($script_file) ? (string) filemtime($script_file) : constant('ITRS_AI_VERSION'),
         true
     );
+
+    // Enqueue reCAPTCHA v3 if site key is configured.
+    $recaptcha_site_key = itrs_ai_get_recaptcha_site_key();
+    if ($recaptcha_site_key) {
+        wp_enqueue_script(
+            'recaptcha-v3',
+            'https://www.google.com/recaptcha/api.js?render=' . esc_attr($recaptcha_site_key),
+            [],
+            null,
+            false
+        );
+
+        wp_add_inline_script('recaptcha-v3', '
+            grecaptcha.ready(function() {
+                grecaptcha.execute("' . esc_attr($recaptcha_site_key) . '", {action: "form_submit"}).then(function(token) {
+                    document.querySelectorAll("input[name=\'recaptcha_token\']").forEach(function(el) {
+                        el.value = token;
+                    });
+                });
+            });
+        ');
+    }
 }
 add_action('wp_enqueue_scripts', 'itrs_ai_enqueue_assets');
 
@@ -70,6 +92,53 @@ function itrs_ai_widgets_init(): void
     ]);
 }
 add_action('widgets_init', 'itrs_ai_widgets_init');
+
+/**
+ * Get reCAPTCHA v3 site key from wp-config constants.
+ */
+function itrs_ai_get_recaptcha_site_key(): string
+{
+    return defined('RECAPTCHA_V3_SITE_KEY') ? constant('RECAPTCHA_V3_SITE_KEY') : '';
+}
+
+/**
+ * Get reCAPTCHA v3 secret key from wp-config constants.
+ */
+function itrs_ai_get_recaptcha_secret_key(): string
+{
+    return defined('RECAPTCHA_V3_SECRET_KEY') ? constant('RECAPTCHA_V3_SECRET_KEY') : '';
+}
+
+/**
+ * Verify reCAPTCHA v3 token.
+ *
+ * @param string $token The reCAPTCHA token from the form.
+ * @return bool True if verification succeeds and score is acceptable, false otherwise.
+ */
+function itrs_ai_verify_recaptcha_token(string $token): bool
+{
+    $secret_key = itrs_ai_get_recaptcha_secret_key();
+    if ('' === $secret_key) {
+        return true; // Skip verification if keys not configured.
+    }
+
+    $response = wp_remote_post('https://www.google.com/recaptcha/api/siteverify', [
+        'body' => [
+            'secret'   => $secret_key,
+            'response' => $token,
+        ],
+    ]);
+
+    if (is_wp_error($response)) {
+        return false;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $result = json_decode($body, true);
+
+    // Accept score >= 0.5 (0 = very likely bot, 1 = very likely human).
+    return isset($result['success']) && $result['success'] && isset($result['score']) && $result['score'] >= 0.5;
+}
 
 /**
  * Register lead capture post type for form submissions.
@@ -104,6 +173,13 @@ function itrs_ai_handle_lead_form_submission(): void
 
     if (! wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['itrs_form_nonce'])), 'itrs_submit_lead')) {
         wp_safe_redirect(add_query_arg('form_status', 'invalid_nonce', wp_get_referer() ?: home_url('/')));
+        exit;
+    }
+
+    // Verify reCAPTCHA token if configured.
+    $recaptcha_token = isset($_POST['recaptcha_token']) ? sanitize_text_field(wp_unslash($_POST['recaptcha_token'])) : '';
+    if ('' !== itrs_ai_get_recaptcha_secret_key() && ! itrs_ai_verify_recaptcha_token($recaptcha_token)) {
+        wp_safe_redirect(add_query_arg('form_status', 'recaptcha_failed', wp_get_referer() ?: home_url('/')));
         exit;
     }
 
