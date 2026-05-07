@@ -1,0 +1,55 @@
+name: Deploy WordPress
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync files to server
+        run: |
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude '.DS_Store' \
+            --exclude 'wp-config.php' \
+            --exclude 'wp-content/uploads/' \
+            --exclude 'node_modules/' \
+            -e "ssh" \
+            ./ "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}/"
+
+      - name: Fix permissions on server
+        run: |
+          ssh "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" "
+            find ${{ secrets.PROD_PATH }} -type d -exec chmod 755 {} \;
+            find ${{ secrets.PROD_PATH }} -type f -exec chmod 644 {} \;
+            chmod -R 775 ${{ secrets.PROD_PATH }}/wp-content/uploads
+            chmod -R 775 ${{ secrets.PROD_PATH }}/wp-content/cache
+          "
+
+      - name: Deployment summary
+        run: |
+          echo "WordPress deployed to ${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}"

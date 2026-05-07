@@ -79,3 +79,53 @@ npm run serve:wp
   - `wp-content/themes/itrs-ai/src/input.css`
 - Compiled output:
   - `wp-content/themes/itrs-ai/assets/css/main.css`
+
+## Auto Deployment
+
+This repo now includes a GitHub Actions workflow at `.github/workflows/deploy.yml`.
+
+- Trigger: push to `develop`
+- Manual trigger: GitHub Actions -> `Deploy WordPress Site` -> `Run workflow`
+- Deployment method: SSH + `rsync`
+- Theme build: runs automatically before upload
+
+### What Gets Deployed
+
+- WordPress core files tracked in the repo
+- Custom theme files in `wp-content/themes/itrs-ai`
+- Built Tailwind assets
+
+### What Is Not Overwritten
+
+- `wp-config.php`
+- `wp-content/uploads/`
+- local / CI `node_modules`
+
+### Required GitHub Secrets
+
+Set these in GitHub: `Settings -> Secrets and variables -> Actions`
+
+- `DEPLOY_HOST`: server hostname or IP
+- `DEPLOY_PORT`: SSH port, usually `22`
+- `DEPLOY_USER`: SSH user for deployment
+- `DEPLOY_PATH`: absolute path to the live WordPress directory on server
+- `DEPLOY_SSH_PRIVATE_KEY`: private SSH key content for the deploy user
+
+### Server Requirements
+
+- SSH access enabled
+- `rsync` installed on the server
+- target directory already contains a working production `wp-config.php`
+- web server user must have access to the deployed files
+
+### Recommended First-Time Setup
+
+1. Create a dedicated deploy SSH key pair.
+2. Add the public key to the server user's `~/.ssh/authorized_keys`.
+3. Add the private key to the `DEPLOY_SSH_PRIVATE_KEY` GitHub secret.
+4. Set the other GitHub secrets listed above.
+5. Push to `develop` or run the workflow manually.
+
+### Important Note
+
+Because `wp-config.php` is excluded from deployment, production SMTP, database credentials, and other environment-specific values should be configured directly on the server.
