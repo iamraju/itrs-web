@@ -37,6 +37,7 @@ jobs:
             --exclude '.DS_Store' \
             --exclude 'wp-config.php' \
             --exclude 'wp-content/uploads/' \
+            --exclude 'wp-content/cache/' \
             --exclude 'node_modules/' \
             -e "ssh" \
             ./ "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}/"
@@ -44,6 +45,8 @@ jobs:
       - name: Fix permissions on server
         run: |
           ssh "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" "
+            mkdir -p ${{ secrets.PROD_PATH }}/wp-content/uploads
+            mkdir -p ${{ secrets.PROD_PATH }}/wp-content/cache
             find ${{ secrets.PROD_PATH }} -type d -exec chmod 755 {} \;
             find ${{ secrets.PROD_PATH }} -type f -exec chmod 644 {} \;
             chmod -R 775 ${{ secrets.PROD_PATH }}/wp-content/uploads
