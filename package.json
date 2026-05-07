@@ -1,0 +1,9 @@
+{
+  "name": "itrs-new",
+  "private": true,
+  "scripts": {
+    "serve:wp": "wp server --host=127.0.0.1 --port=8090",
+    "build:theme": "npm --prefix ./wp-content/themes/itrs-ai run build",
+    "watch:theme": "npm --prefix ./wp-content/themes/itrs-ai run watch"
+  }
+}
